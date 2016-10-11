@@ -46,7 +46,7 @@ if args.file:
             targets['%s / %s' % ( zipname, info.filename )] = ( info.CRC, info.file_size )
             crcs += [( info.CRC, info.file_size )]
             limit = max(limit, info.file_size)
-            print('file found: %s / %s: crc = 0x%x, size = %d' % (zipname, info.filename, info.CRC, info.file_size), file=sys.stderr)
+            print('file found: %s / %s: crc = 0x%08x, size = %d' % (zipname, info.filename, info.CRC, info.file_size), file=sys.stderr)
 
 if not crcs:
     parser.error('No CRCs given')
@@ -60,6 +60,7 @@ code += r'''
 #include <string>
 #include <set>
 #include <cstdint>
+#include <cctype>
 #define repeat(i,n) for (int i = 0; (i) < (n); ++(i))
 using namespace std;
 
@@ -86,7 +87,9 @@ array<set<uint32_t>, limit+1> crcs;
 string stk;
 void dfs(uint32_t crc) {
     if (crcs[stk.length()].count(crc ^ mask_crc32)) {
-        fprintf(stderr, "crc found: %08x: \"%s\"\n", crc ^ mask_crc32, stk.c_str());
+        fprintf(stderr, "crc found: 0x%08x: \"", crc ^ mask_crc32);
+        for (char c : stk) fprintf(stderr, isprint(c) && (c != '\\') ? "%c" : "\\x%02x", c);
+        fprintf(stderr, "\"\n");
         printf("%08x ", crc ^ mask_crc32);
         for (char c : stk) printf(" %02x", c);
         printf("\n");
