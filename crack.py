@@ -6,25 +6,52 @@ import collections
 
 import argparse
 parser = argparse.ArgumentParser()
-parser.add_argument('file', nargs='+')
+parser.add_argument('file', nargs='*')
+parser.add_argument('--hex', action='append')
+parser.add_argument('--dec', action='append')
+parser.add_argument('--limit', type=int)
 parser.add_argument('--compiler', default='g++')
 parser.add_argument('--alphabet', type=os.fsencode, default=string.printable.encode())
 args = parser.parse_args()
 
-print('reading zip files...', file=sys.stderr)
-import zipfile
+targets = collections.OrderedDict()
 limit = 0
-files = collections.OrderedDict()
 crcs = []
-for zipname in args.file:
-    fh = zipfile.ZipFile(zipname)
-    for info in fh.infolist():
-        files[( zipname, info.filename )] = ( info.CRC, info.file_size )
-        crcs += [( info.CRC, info.file_size )]
-        limit = max(limit, info.file_size)
-        print('file found: %s / %s: crc = 0x%x, size = %d' % (zipname, info.filename, info.CRC, info.file_size), file=sys.stderr)
 
-# compiling c++ in python script is the easy way to have a good interface and enough speed
+if args.limit:
+    limit = max(limit, args.limit)
+if args.hex or args.dec:
+    if not args.limit:
+        parser.error('Limit of length not specified')
+
+if args.hex:
+    for s in args.hex:
+        crc = int(s, 16)
+        targets[s] = crc
+        for l in range(args.limit + 1):
+            crcs += [( crc, l )]
+if args.dec:
+    for s in args.dec:
+        crc = int(s)
+        targets[s] = crc
+        for l in range(args.limit + 1):
+            crcs += [( crc, l )]
+
+if args.file:
+    print('reading zip files...', file=sys.stderr)
+    import zipfile
+    for zipname in args.file:
+        fh = zipfile.ZipFile(zipname)
+        for info in fh.infolist():
+            targets['%s / %s' % ( zipname, info.filename )] = ( info.CRC, info.file_size )
+            crcs += [( info.CRC, info.file_size )]
+            limit = max(limit, info.file_size)
+            print('file found: %s / %s: crc = 0x%x, size = %d' % (zipname, info.filename, info.CRC, info.file_size), file=sys.stderr)
+
+if not crcs:
+    parser.error('No CRCs given')
+
+# compiling c++ in python script is the easy way to have the both a good interface and better speed
 code = ''
 code += r'''
 #include <cstdio>
@@ -103,7 +130,6 @@ result = collections.defaultdict(list)
 for line in output.decode().strip().split('\n'):
     crc, *val = map(lambda x: int(x, 16), line.split())
     result[( crc, len(val) )] += [ bytes(val) ]
-for key in files:
-    zipname, filename = key
-    for s in result[files[key]]:
-        print('%s / %s : %s' % (zipname, filename, repr(s)[1:]))
+for key, crc in targets.items():
+    for s in result[crc]:
+        print('%s : %s' % (key, repr(s)[1:]))
