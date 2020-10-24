@@ -1,7 +1,9 @@
 # Zip CRC cracker
 
-Zip files has CRC values, the checksum of the plaintext of contents (even if it is encrypted).
-If the file size is short enough, you can see the contents without passwords.
+Zip files have CRC values, the checksum of the plaintext of contents (even if they are encrypted).
+If the file size is short enough (around 4 bytes because CRC32 is 32 bits), you can see the content of the encrypted zip file without the password.
+
+This script is for trivial CTF tasks. Due to the restriction about file sizes, in most cases, you cannot use this for real-world tasks.
 
 ## usage
 
